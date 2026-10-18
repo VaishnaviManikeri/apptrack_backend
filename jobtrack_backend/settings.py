@@ -1,8 +1,9 @@
 import os
+from datetime import timedelta
 from pathlib import Path
 
+import dj_database_url
 from django.core.exceptions import ImproperlyConfigured
-from datetime import timedelta
 from dotenv import load_dotenv
 
 
@@ -15,11 +16,15 @@ if not SECRET_KEY or SECRET_KEY == "replace-with-a-random-secret":
         "Set DJANGO_SECRET_KEY to a unique random value in backend/.env."
     )
 DEBUG = os.getenv("DJANGO_DEBUG", "false").lower() == "true"
-ALLOWED_HOSTS = [
+allowed_hosts = [
     host.strip()
     for host in os.getenv("DJANGO_ALLOWED_HOSTS", "127.0.0.1,localhost").split(",")
     if host.strip()
 ]
+render_hostname = os.getenv("RENDER_EXTERNAL_HOSTNAME", "").strip()
+if render_hostname:
+    allowed_hosts.append(render_hostname)
+ALLOWED_HOSTS = allowed_hosts
 
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -38,6 +43,7 @@ MIDDLEWARE = [
     "django.contrib.sessions.middleware.SessionMiddleware",
     "corsheaders.middleware.CorsMiddleware",
     "django.middleware.common.CommonMiddleware",
+    "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
@@ -64,12 +70,27 @@ ASGI_APPLICATION = "jobtrack_backend.asgi.application"
 
 # Django's internal default database is not used for application records.
 # Job application documents are stored in MongoDB Atlas via PyMongo.
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "django-internal.sqlite3",
+database_url = os.getenv("DATABASE_URL", "").strip()
+if database_url:
+    DATABASES = {
+        "default": dj_database_url.parse(
+            database_url,
+            conn_max_age=600,
+            conn_health_checks=True,
+            ssl_require=bool(os.getenv("RENDER")),
+        )
     }
-}
+else:
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": BASE_DIR / "django-internal.sqlite3",
+        }
+    }
+if os.getenv("RENDER") and not database_url:
+    raise ImproperlyConfigured(
+        "DATABASE_URL must point to persistent PostgreSQL storage on Render."
+    )
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 USE_TZ = True
@@ -82,6 +103,12 @@ frontend_origins = [
 ]
 CORS_ALLOWED_ORIGINS = frontend_origins
 CSRF_TRUSTED_ORIGINS = frontend_origins
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+if not DEBUG:
+    SECURE_HSTS_SECONDS = 31536000
+    SECURE_SSL_REDIRECT = True
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
 
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [

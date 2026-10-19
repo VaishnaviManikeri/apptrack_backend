@@ -78,6 +78,25 @@ class HealthView(APIView):
         return Response({"status": "ok", "database": "connected"})
 
 
+class ApiRootView(APIView):
+    permission_classes = [AllowAny]
+    authentication_classes = []
+
+    def get(self, request):
+        return Response(
+            {
+                "health": "/api/health/",
+                "auth": {
+                    "register": "/api/auth/register/",
+                    "login": "/api/auth/login/",
+                    "refresh": "/api/auth/refresh/",
+                    "current_user": "/api/auth/me/",
+                },
+                "applications": "/api/applications/",
+            }
+        )
+
+
 class ApplicationListCreateView(APIView):
     def get(self, request):
         try:

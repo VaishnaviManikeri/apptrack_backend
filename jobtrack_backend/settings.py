@@ -98,7 +98,10 @@ TIME_ZONE = "UTC"
 
 frontend_origins = [
     origin.strip()
-    for origin in os.getenv("FRONTEND_ORIGIN", "http://localhost:5173","https://jobapllicaationtrackingsystem.netlify.app").split(",")
+    for origin in os.getenv(
+        "FRONTEND_ORIGIN",
+        "http://localhost:5173",
+    ).split(",")
     if origin.strip()
 ]
 CORS_ALLOWED_ORIGINS = frontend_origins
